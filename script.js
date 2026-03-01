@@ -1,5 +1,4 @@
-let placeholderText =
-'اضغط توليد...';
+let placeholderText = 'اضغط توليد...';
 
 document.getElementById('emailOutput').placeholder = placeholderText;
 document.getElementById('passOutput').placeholder = placeholderText;
@@ -46,15 +45,11 @@ function selectDomain(btn, domain) {
   const genBtn = document.getElementById('genEmailBtn');
   if (genBtn) {
     if (domain === 'tempmail') {
-      let liveText = 
-      'توليد بريد حي';
-      
+      let liveText = 'توليد بريد حي';
       genBtn.innerHTML = '<span>⚡</span> ' + liveText;
       genBtn.style.background = 'linear-gradient(135deg, #00e676, #00b248)';
     } else {
-      let normalText = 
-      'توليد إيميل';
-      
+      let normalText = 'توليد إيميل';
       genBtn.innerHTML = '<span>⚡</span> ' + normalText;
       genBtn.style.background = '';
     }
@@ -111,8 +106,7 @@ function addHistory(value, typeKey) {
 function renderHistory() {
   const list = document.getElementById('historyList');
   if (historyData.length === 0) {
-    let emptyMsg =
-    'لا يوجد سجل بعد...';
+    let emptyMsg = 'لا يوجد سجل بعد...';
     list.innerHTML = '<div class="empty-history">' + emptyMsg + '</div>';
     return;
   }
@@ -121,14 +115,11 @@ function renderHistory() {
   historyData.forEach((item, i) => {
     let typeStr = '';
     if(item.type === 'email') {
-      typeStr =
-      'إيميل';
+      typeStr = 'إيميل';
     } else if(item.type === 'pass') {
-      typeStr =
-      'سر';
+      typeStr = 'سر';
     } else {
-      typeStr =
-      'مستخدم';
+      typeStr = 'مستخدم';
     }
     
     let safeValue = item.value.replace(/'/g,"\\'");
@@ -147,25 +138,19 @@ function askClearHistory() {
   document.getElementById('confirmModal').classList.add('active');
 }
 
-function closeModal() {
-  document.getElementById('confirmModal').classList.remove('active');
-}
-
 function confirmClearHistory() {
   historyData = [];
   localStorage.removeItem('abuFaizHistory');
   renderHistory();
-  closeModal();
-  let msgClear =
-  'تم مسح السجل بنجاح';
+  document.getElementById('confirmModal').classList.remove('active');
+  let msgClear = 'تم مسح السجل بنجاح';
   showToast(msgClear, '🗑️');
 }
 
 async function copyRaw(text) {
   try {
     await navigator.clipboard.writeText(text);
-    let msgCopied =
-    'تم النسخ!';
+    let msgCopied = 'تم النسخ!';
     showToast(msgCopied);
     stats.copied++;
     document.getElementById('totalCopied').textContent = stats.copied;
@@ -176,8 +161,7 @@ async function copyRaw(text) {
 async function copyField(fieldId, btnId) {
   const field = document.getElementById(fieldId);
   if (!field.value) { 
-    let msgEmpty =
-    'لا يوجد شيء للنسخ';
+    let msgEmpty = 'لا يوجد شيء للنسخ';
     showToast(msgEmpty, '⚠️'); 
     return; 
   }
@@ -199,8 +183,9 @@ function shuffle(str) {
 }
 
 function sanitizeHTML(html) {
+  if (!html) return '';
   const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
+  const doc = parser.parseFromString(String(html), 'text/html');
   const badTags = ['script', 'iframe', 'object', 'embed', 'form', 'meta', 'link', 'style', 'base'];
   badTags.forEach(tag => {
     const elements = doc.querySelectorAll(tag);
@@ -218,6 +203,24 @@ function sanitizeHTML(html) {
   return doc.body.innerHTML;
 }
 
+function buildMessageUI(msgFrom, dateStr, htmlContent) {
+  let cleanHtml = sanitizeHTML(htmlContent);
+  let responsiveCss = '<style>.email-body-content img, .email-body-content table, .email-body-content div { max-width: 100% !important; height: auto !important; } .email-body-content pre, .email-body-content code { white-space: pre-wrap !important; word-break: break-word !important; }</style>';
+
+  let html = '<div style="width: 100%; min-height: 100vh; background: #fff; color: #000; box-sizing: border-box; text-align: right; direction: rtl; font-family: sans-serif; margin: 0; padding: 0;">';
+  html += '<div style="background: #0f172a; color: #fff; padding: 15px; border-bottom: 2px solid #00d4ff; text-align: right;">';
+  html += '<div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">👤 المرسل: <br><span style="color:#00d4ff; user-select:all; font-size:14px; direction:ltr; display:inline-block; margin-top:5px;">' + msgFrom + '</span></div>';
+  html += '<div style="font-size: 12px; color: #aaa; margin-top:8px;">📅 الوقت: ' + dateStr + '</div>';
+  html += '</div>';
+
+  html += responsiveCss;
+  html += '<div class="email-body-content" style="padding: 15px; width: 100%; box-sizing: border-box; word-wrap: break-word; overflow-wrap: anywhere; overflow-x: hidden; text-align: left; direction: ltr;">';
+  html += cleanHtml;
+  html += '</div></div>';
+
+  return html;
+}
+
 async function generateEmail(btn, e) {
   if (isGenerating) return;
   if (btn && e) addRipple(btn, e);
@@ -226,39 +229,18 @@ async function generateEmail(btn, e) {
   const inboxContainer = document.getElementById('inboxContainer');
   const inboxList = document.getElementById('inboxList');
 
-  const adjectives = [
-    'dark', 'blue', 'fire', 'swift', 'cool', 'epic', 'star', 'nova', 'iron', 'wild', 'sky', 'zen',
-    'toxic', 'neon', 'shadow', 'crystal', 'quantum', 'cosmic', 'phantom', 'silent', 'golden',
-    'silver', 'crimson', 'emerald', 'sapphire', 'frozen', 'blazing', 'mystic', 'ancient',
-    'digital', 'virtual', 'brave', 'bold', 'clever', 'fast', 'super', 'mega', 'ultra', 'hyper',
-    'giga', 'alpha', 'omega', 'prime', 'elite', 'supreme', 'royal', 'magic', 'secret', 'hidden',
-    'lost', 'last', 'first', 'zero', 'infinite', 'crazy', 'mad', 'smart', 'genius', 'darkness',
-    'light', 'heavy', 'rapid', 'sonic', 'atomic', 'nuclear', 'solar', 'lunar', 'stellar',
-    'astral', 'chaos', 'order', 'chaos', 'doom', 'glory', 'honor', 'power', 'force', 'energy'
-  ];
-  
-  const nouns = [
-    'wolf', 'hawk', 'lion', 'dragon', 'ghost', 'shadow', 'blade', 'storm', 'void', 'pixel', 'cyber', 'nexus',
-    'tiger', 'bear', 'eagle', 'falcon', 'shark', 'viper', 'cobra', 'ninja', 'samurai', 'knight', 'wizard',
-    'mage', 'hunter', 'ranger', 'rogue', 'thief', 'assassin', 'king', 'queen', 'prince', 'lord', 'god',
-    'demon', 'angel', 'spirit', 'soul', 'heart', 'mind', 'brain', 'system', 'network', 'matrix', 'code',
-    'data', 'byte', 'bot', 'mech', 'cyborg', 'alien', 'mutant', 'hero', 'villain', 'titan', 'giant', 'beast',
-    'monster', 'warrior', 'fighter', 'soldier', 'sniper', 'pilot', 'driver', 'rider', 'racer', 'runner'
-  ];
+  const adjectives = ['dark', 'blue', 'fire', 'swift', 'cool', 'epic', 'star', 'nova', 'iron', 'wild', 'sky', 'zen', 'toxic', 'neon', 'shadow', 'crystal', 'quantum', 'cosmic', 'phantom', 'silent', 'golden'];
+  const nouns = ['wolf', 'hawk', 'lion', 'dragon', 'ghost', 'shadow', 'blade', 'storm', 'void', 'pixel', 'cyber', 'nexus', 'tiger', 'bear', 'eagle', 'falcon', 'shark', 'viper', 'cobra', 'ninja'];
 
   if (selectedDomain === 'tempmail') {
     isGenerating = true;
     inboxContainer.style.display = 'block';
     
-    let msgCreating = 
-    'جاري إنشاء إيميل...';
-    
+    let msgCreating = 'جاري إنشاء إيميل...';
     field.value = msgCreating;
     field.classList.remove('has-value');
     
-    let msgWaiting = 
-    'جاري تجهيز الصندوق...';
-    
+    let msgWaiting = 'جاري تجهيز الصندوق...';
     inboxList.innerHTML = '<div class="empty-inbox">' + msgWaiting + '</div>';
 
     const username = adjectives[Math.floor(Math.random() * adjectives.length)] + '_' + nouns[Math.floor(Math.random() * nouns.length)] + Math.floor(Math.random() * 999);
@@ -294,29 +276,18 @@ async function generateEmail(btn, e) {
       localStorage.setItem('abuFaizTempEmails', JSON.stringify(savedTempEmails));
       renderSavedEmails();
 
-      let msgReady = 
-      'بانتظار الرسائل الجديدة...';
-      
+      let msgReady = 'بانتظار الرسائل الجديدة...';
       inboxList.innerHTML = '<div class="empty-inbox">' + msgReady + '</div>';
 
       if (inboxInterval) clearInterval(inboxInterval);
       inboxInterval = setInterval(checkRealInbox, 5000);
 
-      let msgSuccess = 
-      'تم توليد إيميل مؤقت!';
-      
+      let msgSuccess = 'تم توليد إيميل مؤقت!';
       showToast(msgSuccess, '📧');
 
     } catch (error) {
-      let msgFail = 
-      'فشل الاتصال بالخادم';
-      
-      field.value = msgFail;
-      
-      let msgNet = 
-      'تأكد من اتصالك بالإنترنت';
-      
-      inboxList.innerHTML = '<div class="empty-inbox">' + msgNet + '</div>';
+      field.value = 'فشل الاتصال بالخادم';
+      inboxList.innerHTML = '<div class="empty-inbox">تأكد من اتصالك بالإنترنت</div>';
     } finally {
       isGenerating = false;
     }
@@ -343,15 +314,11 @@ async function generateEmail(btn, e) {
     }
 
     const email = username + '@' + targetDomain;
-    
     field.value = email;
     field.classList.add('has-value');
     addHistory(email, 'email');
     
-    let msgGenEmail = 
-    'تم توليد إيميل جديد!';
-    
-    showToast(msgGenEmail, '📧');
+    showToast('تم توليد إيميل جديد!', '📧');
   }
 }
 
@@ -371,12 +338,8 @@ async function checkRealInbox() {
         if (messages.length === 0) return;
 
         let htmlContent = '';
-        
-        let noSubject = 
-        'بدون موضوع';
-        
-        let fromLabel = 
-        'من: ';
+        let noSubject = 'بدون موضوع';
+        let fromLabel = 'من: ';
 
         messages.forEach(msg => {
             let msgSubj = msg.subject || noSubject;
@@ -385,11 +348,7 @@ async function checkRealInbox() {
             
             htmlContent += '<div class="email-message" onclick="readRealMessage(\'' + msg.id + '\')">';
             htmlContent += '<div class="email-subject">' + msgSubj + '</div>';
-            htmlContent += '<div class="email-sender">';
-            htmlContent += fromLabel;
-            htmlContent += msgFrom;
-            htmlContent += ' - ' + dateStr;
-            htmlContent += '</div></div>';
+            htmlContent += '<div class="email-sender">' + fromLabel + msgFrom + ' - ' + dateStr + '</div></div>';
         });
 
         inboxList.innerHTML = htmlContent;
@@ -399,51 +358,66 @@ async function checkRealInbox() {
     }
 }
 
+window.addEventListener('popstate', function(event) {
+    const hash = window.location.hash;
+    
+    if (hash === '#savedList') {
+        if (document.getElementById('readingSavedEmail')) {
+            backToSavedInboxLogic(true);
+        }
+    } else if (hash === '') {
+        if (document.getElementById('readingEmail')) {
+            backToRealInboxLogic(true);
+        }
+        if (document.getElementById('savedEmailModal').classList.contains('active')) {
+            closeSavedModal(true);
+        }
+    }
+});
+
 async function readRealMessage(msgId) {
     const inboxList = document.getElementById('inboxList');
-    
-    let msgOpening = 
-    'جاري فتح الرسالة...';
-    
-    inboxList.innerHTML = '<div class="empty-inbox">' + msgOpening + '</div>';
+    inboxList.innerHTML = '<div class="empty-inbox">جاري فتح الرسالة...</div>';
 
     try {
         const res = await fetch(apiUrl + '/messages/' + msgId, {
             headers: { 'Authorization': 'Bearer ' + currentToken }
         });
         const msgData = await res.json();
+        
+        let msgFrom = msgData.from ? msgData.from.address : 'غير معروف';
+        let dateStr = new Date(msgData.createdAt).toLocaleTimeString();
+        let rawContent = msgData.html ? msgData.html[0] : (msgData.text || 'الرسالة فارغة');
+        
+        inboxList.style.padding = '0';
+        inboxList.style.margin = '0';
+        inboxList.style.maxHeight = 'none';
+        inboxList.style.overflow = 'visible';
+        
+        let uiHtml = buildMessageUI(msgFrom, dateStr, rawContent);
+        
+        window.history.pushState({ view: 'mainMsg' }, '', '#mainMsg');
 
-        let emptyMsg = 
-        'الرسالة فارغة';
-        
-        const rawContent = msgData.html ? msgData.html[0] : (msgData.text || emptyMsg);
-        const cleanContent = sanitizeHTML(rawContent);
-        const safeHtml = cleanContent.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
-        
-        let backLabel = 
-        'الرجوع للصندوق';
-
-        let readingHtml = '<div id="readingEmail" style="height:100%; display:flex; flex-direction:column;">';
-        readingHtml += '<button class="btn-back-inbox" onclick="backToRealInbox()" style="flex-shrink:0;">⬅️ ' + backLabel + '</button>';
-        readingHtml += '<iframe sandbox="allow-same-origin" srcdoc="' + safeHtml + '" class="email-body-view" style="flex:1; width:100%; border:none; background:#fff;"></iframe>';
-        readingHtml += '</div>';
-        
-        inboxList.innerHTML = readingHtml;
+        inboxList.innerHTML = '<div id="readingEmail" style="width:100%;">' + uiHtml + '</div>';
         
     } catch (error) {
-        let errorMsg = 
-        'خطأ بفتح الرسالة';
-        
-        inboxList.innerHTML = '<div class="empty-inbox">' + errorMsg + '</div>';
-        setTimeout(backToRealInbox, 2000);
+        inboxList.innerHTML = '<div class="empty-inbox">خطأ بفتح الرسالة</div>';
+        setTimeout(() => backToRealInboxLogic(false), 2000);
     }
 }
 
-function backToRealInbox() {
-    let msgUpdating = 
-    'جاري التحديث...';
+function backToRealInboxLogic(fromHistory = false) {
+    const inboxList = document.getElementById('inboxList');
+    inboxList.style.padding = ''; 
+    inboxList.style.margin = '';
+    inboxList.style.maxHeight = ''; 
+    inboxList.style.overflow = '';
     
-    document.getElementById('inboxList').innerHTML = '<div class="empty-inbox">' + msgUpdating + '</div>';
+    if (!fromHistory) {
+        window.history.back();
+    }
+    
+    inboxList.innerHTML = '<div class="empty-inbox">جاري التحديث...</div>';
     checkRealInbox();
 }
 
@@ -458,9 +432,7 @@ function generatePass(btn, e) {
 
   const all = upper + lower + nums + syms;
   if (!all) { 
-    let msgNoType =
-    'اختر نوع واحد على الأقل!';
-    showToast(msgNoType, '⚠️'); 
+    showToast('اختر نوع واحد على الأقل!', '⚠️'); 
     return; 
   }
 
@@ -483,9 +455,7 @@ function generatePass(btn, e) {
   updateStrength(pass, upper, lower, nums, syms);
   addHistory(pass, 'pass');
   
-  let msgGenPass =
-  'تم توليد كلمة سر قوية! 🔐';
-  showToast(msgGenPass);
+  showToast('تم توليد كلمة سر قوية! 🔐');
 }
 
 function updateStrength(pass, upper, lower, nums, syms) {
@@ -502,31 +472,22 @@ function updateStrength(pass, upper, lower, nums, syms) {
 
   fill.style.width = score + '%';
   
-  let txt1 =
-  'ضعيفة ⚠️';
-  let txt2 =
-  'متوسطة ⚡';
-  let txt3 =
-  'قوية 💪';
-  let txt4 =
-  'لا تكسر! 🔥';
-
   if (score < 40) {
     fill.style.background = '#ff3d71';
     text.style.color = '#ff3d71';
-    text.textContent = txt1;
+    text.textContent = 'ضعيفة ⚠️';
   } else if (score < 70) {
     fill.style.background = '#ffd700';
     text.style.color = '#ffd700';
-    text.textContent = txt2;
+    text.textContent = 'متوسطة ⚡';
   } else if (score < 90) {
     fill.style.background = '#00e676';
     text.style.color = '#00e676';
-    text.textContent = txt3;
+    text.textContent = 'قوية 💪';
   } else {
     fill.style.background = 'linear-gradient(90deg, #00d4ff, #00e676)';
     text.style.color = '#00d4ff';
-    text.textContent = txt4;
+    text.textContent = 'لا تكسر! 🔥';
   }
 }
 
@@ -575,31 +536,24 @@ function generateUsername(btn, e) {
   field.classList.add('has-value');
   addHistory(username, 'user');
   
-  let msgGenUser =
-  'تم توليد اسم مستخدم! ✨';
-  showToast(msgGenUser);
+  showToast('تم توليد اسم مستخدم! ✨');
 }
 
 function renderSavedEmails() {
   const list = document.getElementById('savedEmailsList');
   if (savedTempEmails.length === 0) {
-    let emptyMsg =
-    'لا يوجد إيميلات محفوظة بعد...';
-    list.innerHTML = '<div class="empty-history">' + emptyMsg + '</div>';
+    list.innerHTML = '<div class="empty-history">لا يوجد إيميلات محفوظة بعد...</div>';
     return;
   }
   
   let htmlResult = '';
-  let copyLabel = 
-  '📋 نسخ';
-
   savedTempEmails.forEach((item, i) => {
     let safeEmail = item.email.replace(/'/g,"\\'");
     let safeToken = item.token.replace(/'/g,"\\'");
     
     htmlResult += '<div class="saved-email-item" style="cursor:default;">';
     htmlResult += '<div class="saved-email-text" style="cursor:pointer;" onclick="openSavedEmail(\'' + safeEmail + '\', \'' + safeToken + '\')">' + item.email + '</div>';
-    htmlResult += '<button class="saved-email-copy" onclick="copyRaw(\'' + safeEmail + '\')">' + copyLabel + '</button>';
+    htmlResult += '<button class="saved-email-copy" onclick="copyRaw(\'' + safeEmail + '\')">📋 نسخ</button>';
     htmlResult += '</div>';
   });
   list.innerHTML = htmlResult;
@@ -609,21 +563,35 @@ function openSavedEmail(email, token) {
   document.getElementById('savedEmailTitle').textContent = email;
   document.getElementById('savedEmailModal').classList.add('active');
   
+  const modalBox = document.querySelector('#savedEmailModal .modal-box');
+  if (modalBox) {
+      modalBox.style.width = '95%';
+      modalBox.style.maxWidth = '600px';
+      modalBox.style.height = '85vh';
+      modalBox.style.maxHeight = '85vh';
+      modalBox.style.margin = 'auto';
+      modalBox.style.borderRadius = '15px';
+      modalBox.style.padding = '20px';
+      modalBox.style.display = 'flex';
+      modalBox.style.flexDirection = 'column';
+  }
+  
   currentModalToken = token;
   currentModalEmail = email;
   
-  let msgFetching = 
-  'جاري جلب الرسائل...';
+  window.history.pushState({ view: 'modal' }, '', '#savedList');
   
-  document.getElementById('savedInboxList').innerHTML = '<div class="empty-inbox">' + msgFetching + '</div>';
-  
+  document.getElementById('savedInboxList').innerHTML = '<div class="empty-inbox">جاري جلب الرسائل...</div>';
   fetchSavedMessages();
 }
 
-function closeSavedModal() {
+function closeSavedModal(fromHistory = false) {
   document.getElementById('savedEmailModal').classList.remove('active');
   currentModalToken = '';
   currentModalEmail = '';
+  if (!fromHistory && window.location.hash === '#savedList') {
+      window.history.back();
+  }
 }
 
 async function fetchSavedMessages() {
@@ -658,31 +626,22 @@ async function fetchSavedMessages() {
       combined.sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
 
       if (combined.length === 0) {
-          let emptySaved = 
-          'لا يوجد رسائل في هذا الصندوق.';
-          inboxList.innerHTML = '<div class="empty-inbox">' + emptySaved + '</div>';
+          inboxList.innerHTML = '<div class="empty-inbox">لا يوجد رسائل في هذا الصندوق.</div>';
           return;
       }
 
       let htmlContent = '';
-      let noSubject = 
-      'بدون موضوع';
-      let fromLabel = 
-      'من: ';
-
       combined.forEach(msg => {
-          let msgSubj = msg.subject || noSubject;
+          let msgSubj = msg.subject || 'بدون موضوع';
           let msgFrom = msg.from ? msg.from.address : (msg.fromAddress || 'غير معروف');
           let dateVal = msg.createdAt || msg.date;
           let dateStr = new Date(dateVal).toLocaleTimeString();
           
-          let badgeText = 
-          '[محفوظة] ';
-          let badgeHtml = seenIds.has(msg.id) && !apiMessages.find(m=>m.id === msg.id) ? '<span style="color:#00e676;font-size:10px;">' + badgeText + '</span> ' : '';
+          let badgeHtml = seenIds.has(msg.id) && !apiMessages.find(m=>m.id === msg.id) ? '<span style="color:#00e676;font-size:10px;">[محفوظة] </span> ' : '';
 
           htmlContent += '<div class="email-message" onclick="readSavedMessage(\'' + msg.id + '\')">';
           htmlContent += '<div class="email-subject">' + badgeHtml + msgSubj + '</div>';
-          htmlContent += '<div class="email-sender">' + fromLabel + msgFrom + ' - ' + dateStr + '</div></div>';
+          htmlContent += '<div class="email-sender">من: ' + msgFrom + ' - ' + dateStr + '</div></div>';
       });
 
       inboxList.innerHTML = htmlContent;
@@ -692,16 +651,11 @@ async function fetchSavedMessages() {
       combined.sort((a, b) => new Date(b.date) - new Date(a.date));
 
       if (combined.length === 0) {
-          let msgDel = 
-          'الحساب محذوف من الخادم ولا يوجد رسائل محفوظة محلياً.';
-          inboxList.innerHTML = '<div class="empty-inbox">' + msgDel + '</div>';
+          inboxList.innerHTML = '<div class="empty-inbox">الحساب محذوف من الخادم ولا يوجد رسائل محفوظة محلياً.</div>';
           return;
       }
 
-      let msgWarning = 
-      'نعرض الرسائل المحفوظة بذاكرة المتصفح فقط';
-      let htmlContent = '<div style="color:#00e676;font-size:12px;margin-bottom:10px;text-align:center;">' + msgWarning + '</div>';
-      
+      let htmlContent = '<div style="color:#00e676;font-size:12px;margin-bottom:10px;text-align:center;">نعرض الرسائل المحفوظة بذاكرة المتصفح فقط</div>';
       combined.forEach(msg => {
           let msgSubj = msg.subject || 'بدون موضوع';
           let msgFrom = msg.fromAddress || 'غير معروف';
@@ -717,29 +671,27 @@ async function fetchSavedMessages() {
 
 async function readSavedMessage(msgId) {
     const inboxList = document.getElementById('savedInboxList');
+    const modalBox = document.querySelector('#savedEmailModal .modal-box');
+    const modalWrap = document.getElementById('savedEmailModal');
     
-    let msgOpening = 
-    'جاري فتح الرسالة...';
-    
-    inboxList.innerHTML = '<div class="empty-inbox">' + msgOpening + '</div>';
+    inboxList.innerHTML = '<div class="empty-inbox">جاري فتح الرسالة...</div>';
 
     let localMsgs = savedMsgData[currentModalEmail] || {};
     let localMsg = localMsgs[msgId];
     let bodyContent = '';
+    let msgFrom = 'غير معروف';
+    let dateStr = '';
 
     try {
         const res = await fetch(apiUrl + '/messages/' + msgId, {
             headers: { 'Authorization': 'Bearer ' + currentModalToken }
         });
-        
         if (!res.ok) throw new Error('Not found');
-        
         const msgData = await res.json();
-
-        let emptyMsg = 
-        'الرسالة فارغة';
         
-        bodyContent = msgData.html ? msgData.html[0] : (msgData.text || emptyMsg);
+        msgFrom = msgData.from ? msgData.from.address : 'غير معروف';
+        dateStr = new Date(msgData.createdAt).toLocaleTimeString();
+        bodyContent = msgData.html ? msgData.html[0] : (msgData.text || 'الرسالة فارغة');
         
         if (!savedMsgData[currentModalEmail]) savedMsgData[currentModalEmail] = {};
         savedMsgData[currentModalEmail][msgId] = {
@@ -750,36 +702,70 @@ async function readSavedMessage(msgId) {
             bodyContent: bodyContent
         };
         localStorage.setItem('abuFaizMsgData', JSON.stringify(savedMsgData));
-        
     } catch (error) {
         if (localMsg && localMsg.bodyContent) {
             bodyContent = localMsg.bodyContent;
+            msgFrom = localMsg.fromAddress || 'غير معروف';
+            dateStr = new Date(localMsg.date).toLocaleTimeString();
         } else {
-            let msgLost = 
-            'الرسالة محذوفة ولم تقم بفتحها مسبقاً لحفظها!';
-            inboxList.innerHTML = '<div class="empty-inbox">' + msgLost + '</div>';
-            setTimeout(backToSavedInbox, 2500);
+            inboxList.innerHTML = '<div class="empty-inbox">الرسالة محذوفة وغير محفوظة!</div>';
+            setTimeout(() => backToSavedInboxLogic(false), 2500);
             return;
         }
     }
 
-    const cleanContent = sanitizeHTML(bodyContent);
-    let safeHtml = cleanContent.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
-    let backLabel = 
-    'الرجوع للصندوق';
+    if (modalBox) {
+        modalBox.style.width = '100vw';
+        modalBox.style.maxWidth = '100vw';
+        modalBox.style.height = '100vh';
+        modalBox.style.maxHeight = '100vh';
+        modalBox.style.padding = '0';
+        modalBox.style.margin = '0';
+        modalBox.style.borderRadius = '0';
+    }
+    if (modalWrap) {
+        modalWrap.style.padding = '0';
+    }
 
-    let readingHtml = '<div id="readingSavedEmail" style="height:100%; display:flex; flex-direction:column;">';
-    readingHtml += '<button class="btn-back-inbox" onclick="backToSavedInbox()" style="flex-shrink:0;">⬅️ ' + backLabel + '</button>';
-    readingHtml += '<iframe sandbox="allow-same-origin" srcdoc="' + safeHtml + '" class="email-body-view" style="flex:1; width:100%; border:none; background:#fff;"></iframe>';
-    readingHtml += '</div>';
+    inboxList.style.padding = '0';
+    inboxList.style.margin = '0';
+    inboxList.style.maxHeight = 'none';
+    inboxList.style.overflow = 'visible';
+
+    let uiHtml = buildMessageUI(msgFrom, dateStr, bodyContent);
     
-    inboxList.innerHTML = readingHtml;
+    window.history.pushState({ view: 'msg' }, '', '#msg');
+
+    inboxList.innerHTML = '<div id="readingSavedEmail" style="width:100%;">' + uiHtml + '</div>';
 }
 
-function backToSavedInbox() {
-    let msgUpdating = 
-    'جاري التحديث...';
+function backToSavedInboxLogic(fromHistory = false) {
+    const inboxList = document.getElementById('savedInboxList');
+    const modalBox = document.querySelector('#savedEmailModal .modal-box');
+    const modalWrap = document.getElementById('savedEmailModal');
     
-    document.getElementById('savedInboxList').innerHTML = '<div class="empty-inbox">' + msgUpdating + '</div>';
+    if (modalBox) {
+        modalBox.style.width = '95%';
+        modalBox.style.maxWidth = '600px';
+        modalBox.style.height = '85vh';
+        modalBox.style.maxHeight = '85vh';
+        modalBox.style.padding = '20px';
+        modalBox.style.margin = 'auto';
+        modalBox.style.borderRadius = '15px';
+    }
+    if (modalWrap) {
+        modalWrap.style.padding = '';
+    }
+
+    inboxList.style.padding = ''; 
+    inboxList.style.margin = ''; 
+    inboxList.style.maxHeight = ''; 
+    inboxList.style.overflow = '';
+    
+    if (!fromHistory) {
+        window.history.back();
+    }
+    
+    inboxList.innerHTML = '<div class="empty-inbox">جاري التحديث...</div>';
     fetchSavedMessages();
 }
