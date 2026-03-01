@@ -23,6 +23,29 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('totalCopied').textContent = stats.copied;
   renderHistory();
   renderSavedEmails();
+
+  // استعادة الجلسة النشطة بعد تحديث الصفحة
+  const activeSession = JSON.parse(localStorage.getItem('abuFaizActiveSession'));
+  if (activeSession && activeSession.token && activeSession.email) {
+    currentToken = activeSession.token;
+    const field = document.getElementById('emailOutput');
+    field.value = activeSession.email;
+    field.classList.add('has-value');
+
+    // تفعيل زر البريد المؤقت شكلياً
+    document.querySelectorAll('.domain-btn').forEach(b => {
+      if (b.getAttribute('onclick').includes('tempmail')) {
+        selectDomain(b, 'tempmail');
+      }
+    });
+
+    document.getElementById('inboxContainer').style.display = 'block';
+    document.getElementById('inboxList').innerHTML = '<div class="empty-inbox">جاري استعادة الصندوق...</div>';
+    
+    checkRealInbox();
+    if (inboxInterval) clearInterval(inboxInterval);
+    inboxInterval = setInterval(checkRealInbox, 5000);
+  }
 });
 
 setInterval(() => {
@@ -186,7 +209,7 @@ function sanitizeHTML(html) {
   if (!html) return '';
   const parser = new DOMParser();
   const doc = parser.parseFromString(String(html), 'text/html');
-  const badTags = ['script', 'iframe', 'object', 'embed', 'form', 'meta', 'link', 'style', 'base'];
+  const badTags = ['script', 'object', 'embed', 'form', 'base', 'iframe']; 
   badTags.forEach(tag => {
     const elements = doc.querySelectorAll(tag);
     elements.forEach(el => el.remove());
@@ -205,21 +228,64 @@ function sanitizeHTML(html) {
 
 function buildMessageUI(msgFrom, dateStr, htmlContent) {
   let cleanHtml = sanitizeHTML(htmlContent);
-  let responsiveCss = '<style>.email-body-content img, .email-body-content table, .email-body-content div { max-width: 100% !important; height: auto !important; } .email-body-content pre, .email-body-content code { white-space: pre-wrap !important; word-break: break-word !important; }</style>';
+  
+  let iframeWrapper = `<!DOCTYPE html>
+  <html dir="auto">
+  <head>
+    <meta charset="utf-8">
+    <style>
+      html { zoom: 0.55; overflow: hidden; } 
+      @media screen and (min-width: 600px) { html { zoom: 1; } }
+      body {
+        margin: 0;
+        padding: 10px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #ffffff;
+        color: #000000;
+        word-wrap: break-word;
+      }
+      img { max-width: 100% !important; height: auto !important; }
+      table, tr, td, div { max-width: 100% !important; box-sizing: border-box !important; }
+      pre, code { white-space: pre-wrap !important; word-break: break-word !important; }
+    </style>
+  </head>
+  <body>
+    ${cleanHtml}
+  </body>
+  </html>`;
 
-  let html = '<div style="width: 100%; min-height: 100vh; background: #fff; color: #000; box-sizing: border-box; text-align: right; direction: rtl; font-family: sans-serif; margin: 0; padding: 0;">';
-  html += '<div style="background: #0f172a; color: #fff; padding: 15px; border-bottom: 2px solid #00d4ff; text-align: right;">';
+  let safeSrcDoc = iframeWrapper.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+
+  let html = '<div style="width: 100%; height: auto; display: flex; flex-direction: column; text-align: right; direction: rtl; margin: 0; padding: 0; border-radius: 12px; overflow: hidden; border: 1px solid rgba(0,212,255,0.3);">';
+  
+  html += '<div style="background: #0f172a; color: #fff; padding: 15px; border-bottom: 2px solid #00d4ff; text-align: right; flex-shrink: 0; z-index: 10;">';
   html += '<div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">👤 المرسل: <br><span style="color:#00d4ff; user-select:all; font-size:14px; direction:ltr; display:inline-block; margin-top:5px;">' + msgFrom + '</span></div>';
   html += '<div style="font-size: 12px; color: #aaa; margin-top:8px;">📅 الوقت: ' + dateStr + '</div>';
   html += '</div>';
 
-  html += responsiveCss;
-  html += '<div class="email-body-content" style="padding: 15px; width: 100%; box-sizing: border-box; word-wrap: break-word; overflow-wrap: anywhere; overflow-x: hidden; text-align: left; direction: ltr;">';
-  html += cleanHtml;
+  html += '<div style="width: 100%; background: #fff;">';
+  html += `<iframe sandbox="allow-same-origin" srcdoc="${safeSrcDoc}" style="width: 100%; min-height: 50px; border: none; display: block;" onload="setTimeout(() => { this.style.height = this.contentWindow.document.documentElement.scrollHeight + 20 + 'px'; }, 50);"></iframe>`;
   html += '</div></div>';
 
   return html;
 }
+
+window.addEventListener('popstate', function(event) {
+    const hash = window.location.hash;
+    
+    if (hash === '#savedModal') {
+        if (document.getElementById('readingSavedEmail')) {
+            backToSavedInboxLogic(true);
+        }
+    } else if (hash === '') {
+        if (document.getElementById('readingEmail')) {
+            backToRealInboxLogic(true);
+        }
+        if (document.getElementById('savedEmailModal').classList.contains('active')) {
+            closeSavedModal(true);
+        }
+    }
+});
 
 async function generateEmail(btn, e) {
   if (isGenerating) return;
@@ -268,6 +334,9 @@ async function generateEmail(btn, e) {
       const tokenData = await tokenRes.json();
       currentToken = tokenData.token;
 
+      // حفظ الجلسة النشطة
+      localStorage.setItem('abuFaizActiveSession', JSON.stringify({ email: email, token: currentToken }));
+
       field.value = email;
       field.classList.add('has-value');
       addHistory(email, 'email');
@@ -293,6 +362,10 @@ async function generateEmail(btn, e) {
     }
 
   } else {
+    // مسح الجلسة النشطة إذا ولد إيميل عادي مشان يختفي الصندوق لو عمل تحديث
+    localStorage.removeItem('abuFaizActiveSession');
+    currentToken = '';
+    
     inboxContainer.style.display = 'none';
     if (inboxInterval) clearInterval(inboxInterval);
 
@@ -358,23 +431,6 @@ async function checkRealInbox() {
     }
 }
 
-window.addEventListener('popstate', function(event) {
-    const hash = window.location.hash;
-    
-    if (hash === '#savedList') {
-        if (document.getElementById('readingSavedEmail')) {
-            backToSavedInboxLogic(true);
-        }
-    } else if (hash === '') {
-        if (document.getElementById('readingEmail')) {
-            backToRealInboxLogic(true);
-        }
-        if (document.getElementById('savedEmailModal').classList.contains('active')) {
-            closeSavedModal(true);
-        }
-    }
-});
-
 async function readRealMessage(msgId) {
     const inboxList = document.getElementById('inboxList');
     inboxList.innerHTML = '<div class="empty-inbox">جاري فتح الرسالة...</div>';
@@ -389,14 +445,11 @@ async function readRealMessage(msgId) {
         let dateStr = new Date(msgData.createdAt).toLocaleTimeString();
         let rawContent = msgData.html ? msgData.html[0] : (msgData.text || 'الرسالة فارغة');
         
-        inboxList.style.padding = '0';
-        inboxList.style.margin = '0';
-        inboxList.style.maxHeight = 'none';
-        inboxList.style.overflow = 'visible';
+        inboxList.style.cssText = 'padding: 0 !important; margin: 0 !important; max-height: none !important; overflow: visible !important; border: none !important;';
         
         let uiHtml = buildMessageUI(msgFrom, dateStr, rawContent);
         
-        window.history.pushState({ view: 'mainMsg' }, '', '#mainMsg');
+        window.history.pushState({ view: 'reading' }, '', '#reading');
 
         inboxList.innerHTML = '<div id="readingEmail" style="width:100%;">' + uiHtml + '</div>';
         
@@ -408,10 +461,7 @@ async function readRealMessage(msgId) {
 
 function backToRealInboxLogic(fromHistory = false) {
     const inboxList = document.getElementById('inboxList');
-    inboxList.style.padding = ''; 
-    inboxList.style.margin = '';
-    inboxList.style.maxHeight = ''; 
-    inboxList.style.overflow = '';
+    inboxList.style.cssText = ''; 
     
     if (!fromHistory) {
         window.history.back();
@@ -567,19 +617,19 @@ function openSavedEmail(email, token) {
   if (modalBox) {
       modalBox.style.width = '95%';
       modalBox.style.maxWidth = '600px';
-      modalBox.style.height = '85vh';
+      modalBox.style.height = 'auto';  
       modalBox.style.maxHeight = '85vh';
-      modalBox.style.margin = 'auto';
-      modalBox.style.borderRadius = '15px';
+      modalBox.style.margin = 'auto'; 
       modalBox.style.padding = '20px';
-      modalBox.style.display = 'flex';
-      modalBox.style.flexDirection = 'column';
+      modalBox.style.borderRadius = '15px';
+      modalBox.style.background = '';
+      modalBox.style.border = '';
   }
   
   currentModalToken = token;
   currentModalEmail = email;
   
-  window.history.pushState({ view: 'modal' }, '', '#savedList');
+  window.history.pushState({ view: 'modal' }, '', '#savedModal');
   
   document.getElementById('savedInboxList').innerHTML = '<div class="empty-inbox">جاري جلب الرسائل...</div>';
   fetchSavedMessages();
@@ -589,7 +639,7 @@ function closeSavedModal(fromHistory = false) {
   document.getElementById('savedEmailModal').classList.remove('active');
   currentModalToken = '';
   currentModalEmail = '';
-  if (!fromHistory && window.location.hash === '#savedList') {
+  if (!fromHistory && window.location.hash === '#savedModal') {
       window.history.back();
   }
 }
@@ -715,26 +765,17 @@ async function readSavedMessage(msgId) {
     }
 
     if (modalBox) {
-        modalBox.style.width = '100vw';
-        modalBox.style.maxWidth = '100vw';
-        modalBox.style.height = '100vh';
-        modalBox.style.maxHeight = '100vh';
-        modalBox.style.padding = '0';
-        modalBox.style.margin = '0';
-        modalBox.style.borderRadius = '0';
+        modalBox.style.cssText = 'width: 95% !important; max-width: 800px !important; height: auto !important; max-height: none !important; margin: 20px auto !important; padding: 0 !important; border-radius: 12px !important; border: none !important; background: transparent !important; box-shadow: none !important;';
     }
     if (modalWrap) {
-        modalWrap.style.padding = '0';
+        modalWrap.style.setProperty('padding', '0', 'important');
     }
 
-    inboxList.style.padding = '0';
-    inboxList.style.margin = '0';
-    inboxList.style.maxHeight = 'none';
-    inboxList.style.overflow = 'visible';
+    inboxList.style.cssText = 'padding: 0 !important; margin: 0 !important; max-height: none !important; overflow: visible !important; border: none !important;';
 
     let uiHtml = buildMessageUI(msgFrom, dateStr, bodyContent);
     
-    window.history.pushState({ view: 'msg' }, '', '#msg');
+    window.history.pushState({ view: 'savedMsg' }, '', '#savedMsg');
 
     inboxList.innerHTML = '<div id="readingSavedEmail" style="width:100%;">' + uiHtml + '</div>';
 }
@@ -745,22 +786,13 @@ function backToSavedInboxLogic(fromHistory = false) {
     const modalWrap = document.getElementById('savedEmailModal');
     
     if (modalBox) {
-        modalBox.style.width = '95%';
-        modalBox.style.maxWidth = '600px';
-        modalBox.style.height = '85vh';
-        modalBox.style.maxHeight = '85vh';
-        modalBox.style.padding = '20px';
-        modalBox.style.margin = 'auto';
-        modalBox.style.borderRadius = '15px';
+        modalBox.style.cssText = 'width: 95%; max-width: 600px; height: auto; max-height: 85vh; margin: auto; border-radius: 15px; padding: 20px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--accent2);';
     }
     if (modalWrap) {
-        modalWrap.style.padding = '';
+        modalWrap.style.setProperty('padding', '');
     }
 
-    inboxList.style.padding = ''; 
-    inboxList.style.margin = ''; 
-    inboxList.style.maxHeight = ''; 
-    inboxList.style.overflow = '';
+    inboxList.style.cssText = ''; 
     
     if (!fromHistory) {
         window.history.back();
