@@ -17,6 +17,7 @@ let inboxInterval;
 let currentModalToken = '';
 let currentModalEmail = '';
 const apiUrl = 'https://api.mail.gw';
+let isGenerating = false;
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('totalGenerated').textContent = stats.generated;
@@ -41,6 +42,23 @@ function selectDomain(btn, domain) {
   });
   btn.classList.add('active');
   selectedDomain = domain;
+
+  const genBtn = document.getElementById('genEmailBtn');
+  if (genBtn) {
+    if (domain === 'tempmail') {
+      let liveText = 
+      'توليد بريد حي';
+      
+      genBtn.innerHTML = '<span>⚡</span> ' + liveText;
+      genBtn.style.background = 'linear-gradient(135deg, #00e676, #00b248)';
+    } else {
+      let normalText = 
+      'توليد إيميل';
+      
+      genBtn.innerHTML = '<span>⚡</span> ' + normalText;
+      genBtn.style.background = '';
+    }
+  }
 }
 
 function selectStyle(btn, style) {
@@ -180,8 +198,29 @@ function shuffle(str) {
   return str.split('').sort(() => 0.5 - Math.random()).join('');
 }
 
-async function generateEmail(btn) {
-  if (btn && event) addRipple(btn, event);
+function sanitizeHTML(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const badTags = ['script', 'iframe', 'object', 'embed', 'form', 'meta', 'link', 'style', 'base'];
+  badTags.forEach(tag => {
+    const elements = doc.querySelectorAll(tag);
+    elements.forEach(el => el.remove());
+  });
+  const allElements = doc.querySelectorAll('*');
+  allElements.forEach(el => {
+    for (let i = el.attributes.length - 1; i >= 0; i--) {
+      const attr = el.attributes[i];
+      if (attr.name.toLowerCase().startsWith('on') || attr.value.toLowerCase().includes('javascript:')) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  });
+  return doc.body.innerHTML;
+}
+
+async function generateEmail(btn, e) {
+  if (isGenerating) return;
+  if (btn && e) addRipple(btn, e);
 
   const field = document.getElementById('emailOutput');
   const inboxContainer = document.getElementById('inboxContainer');
@@ -208,6 +247,7 @@ async function generateEmail(btn) {
   ];
 
   if (selectedDomain === 'tempmail') {
+    isGenerating = true;
     inboxContainer.style.display = 'block';
     
     let msgCreating = 
@@ -229,7 +269,7 @@ async function generateEmail(btn) {
       const domain = domainData['hydra:member'][0].domain;
 
       const email = username + '@' + domain;
-      const password = 'Password123!';
+      const password = 'P@ss_' + Math.random().toString(36).substring(2, 10) + '!';
 
       await fetch(apiUrl + '/accounts', {
           method: 'POST',
@@ -277,6 +317,8 @@ async function generateEmail(btn) {
       'تأكد من اتصالك بالإنترنت';
       
       inboxList.innerHTML = '<div class="empty-inbox">' + msgNet + '</div>';
+    } finally {
+      isGenerating = false;
     }
 
   } else {
@@ -374,14 +416,16 @@ async function readRealMessage(msgId) {
         let emptyMsg = 
         'الرسالة فارغة';
         
-        const bodyContent = msgData.html ? msgData.html[0] : (msgData.text || emptyMsg);
+        const rawContent = msgData.html ? msgData.html[0] : (msgData.text || emptyMsg);
+        const cleanContent = sanitizeHTML(rawContent);
+        const safeHtml = cleanContent.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
         
         let backLabel = 
         'الرجوع للصندوق';
 
-        let readingHtml = '<div id="readingEmail">';
-        readingHtml += '<button class="btn-back-inbox" onclick="backToRealInbox()">⬅️ ' + backLabel + '</button>';
-        readingHtml += '<div class="email-body-view">' + bodyContent + '</div>';
+        let readingHtml = '<div id="readingEmail" style="height:100%; display:flex; flex-direction:column;">';
+        readingHtml += '<button class="btn-back-inbox" onclick="backToRealInbox()" style="flex-shrink:0;">⬅️ ' + backLabel + '</button>';
+        readingHtml += '<iframe sandbox="allow-same-origin" srcdoc="' + safeHtml + '" class="email-body-view" style="flex:1; width:100%; border:none; background:#fff;"></iframe>';
         readingHtml += '</div>';
         
         inboxList.innerHTML = readingHtml;
@@ -403,8 +447,8 @@ function backToRealInbox() {
     checkRealInbox();
 }
 
-function generatePass(btn) {
-  if (btn && event) addRipple(btn, event);
+function generatePass(btn, e) {
+  if (btn && e) addRipple(btn, e);
 
   const options = document.querySelectorAll('#passOptions .option-toggle');
   const upper = options[0].classList.contains('checked') ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' : '';
@@ -429,6 +473,7 @@ function generatePass(btn) {
   if (syms)  pass += rand(syms);
 
   while (pass.length < length) pass += rand(all);
+  if (pass.length > length) pass = pass.substring(0, length);
   pass = shuffle(pass);
 
   const field = document.getElementById('passOutput');
@@ -485,8 +530,8 @@ function updateStrength(pass, upper, lower, nums, syms) {
   }
 }
 
-function generateUsername(btn) {
-  if (btn && event) addRipple(btn, event);
+function generateUsername(btn, e) {
+  if (btn && e) addRipple(btn, e);
 
   const styles = {
     cool: [
@@ -718,12 +763,14 @@ async function readSavedMessage(msgId) {
         }
     }
 
+    const cleanContent = sanitizeHTML(bodyContent);
+    let safeHtml = cleanContent.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
     let backLabel = 
     'الرجوع للصندوق';
 
     let readingHtml = '<div id="readingSavedEmail" style="height:100%; display:flex; flex-direction:column;">';
     readingHtml += '<button class="btn-back-inbox" onclick="backToSavedInbox()" style="flex-shrink:0;">⬅️ ' + backLabel + '</button>';
-    readingHtml += '<div class="email-body-view" style="flex:1; overflow-y:auto; height:100%;">' + bodyContent + '</div>';
+    readingHtml += '<iframe sandbox="allow-same-origin" srcdoc="' + safeHtml + '" class="email-body-view" style="flex:1; width:100%; border:none; background:#fff;"></iframe>';
     readingHtml += '</div>';
     
     inboxList.innerHTML = readingHtml;
